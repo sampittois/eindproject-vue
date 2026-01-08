@@ -67,7 +67,9 @@ export const deleteBag = async (id) => {
 
 export const getVotes = async (bagId) => {
   try {
-    const response = await apiClient.get(`/votes/${bagId}`)
+    // Prefer query param to fetch votes by bagId; some backends
+    // expose filtering via params rather than path segments.
+    const response = await apiClient.get('/votes', { params: { bagId } })
     return response.data
   } catch (error) {
     throw error
@@ -79,6 +81,27 @@ export const getAllVotes = async () => {
     const response = await apiClient.get('/votes')
     return response.data
   } catch (error) {
+    throw error
+  }
+}
+
+// Helper: fetch votes for a specific config/bag and gracefully fallback
+// If the backend doesn't support filtering via params, we fall back to
+// fetching all votes and filtering client-side.
+export const getVotesForBag = async (bagId) => {
+  try {
+    const response = await apiClient.get('/votes', { params: { bagId } })
+    return response.data
+  } catch (error) {
+    // Fallback: client-side filter from all votes if the specific endpoint fails
+    if (error.response && (error.response.status === 404 || error.response.status === 400)) {
+      const all = await apiClient.get('/votes')
+      const raw = all.data?.data || all.data || []
+      const filtered = Array.isArray(raw)
+        ? raw.filter(v => (v.bagId?._id || v.bagId) === bagId)
+        : []
+      return { data: filtered }
+    }
     throw error
   }
 }

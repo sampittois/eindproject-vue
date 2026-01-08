@@ -162,7 +162,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getBags, deleteBag, getVotes } from '@/services/api'
+import { getBags, deleteBag, getVotesForBag } from '@/services/api'
 import { logout as clearAuth } from '@/services/auth'
 
 const router = useRouter()
@@ -240,7 +240,7 @@ const openVotesModal = async (bagId) => {
   votes.value = []
   
   try {
-    const response = await getVotes(bagId)
+    const response = await getVotesForBag(bagId)
     console.log('Votes Response:', response)
     votes.value = response.data || response || []
   } catch (err) {

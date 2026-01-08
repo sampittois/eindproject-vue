@@ -89,18 +89,16 @@
                 </svg>
                 <span>{{ formatDate(bag.createdAt) }}</span>
               </div>
+              <div class="info-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h-2m2-4h-2m2 4l-2 2m2-2l2 2M9 6h6m-6 4h6m-6 4h6M6 10h.01M6 6h.01M6 14h.01" />
+                </svg>
+                <span>
+                  {{ (voteCounts && voteCounts[bag._id]) ? voteCounts[bag._id] : 0 }} votes
+                  — {{ voterSummaryFor(bag) }}
+                </span>
+              </div>
             </div>
-
-            <!-- Votes Button -->
-            <button
-              @click="openVotesModal(bag._id)"
-              class="votes-btn"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h-2m2-4h-2m2 4l-2 2m2-2l2 2M9 6h6m-6 4h6m-6 4h6M6 10h.01M6 6h.01M6 14h.01" />
-              </svg>
-              <span>Votes</span>
-            </button>
 
             <!-- Delete Button -->
             <button
@@ -119,37 +117,7 @@
       </div>
     </main>
 
-    <!-- Votes Modal -->
-    <div v-if="selectedBagId" class="modal-overlay" @click="closeVotesModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h2>Votes for {{ selectedBag?.name || selectedBag?.bagName }}</h2>
-          <button @click="closeVotesModal" class="close-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div v-if="loadingVotes" class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading votes...</p>
-          </div>
-          <div v-else-if="voteError" class="error-state">
-            {{ voteError }}
-          </div>
-          <div v-else-if="votes.length === 0" class="empty-state">
-            <p>No votes for this design yet.</p>
-          </div>
-          <div v-else class="votes-list">
-            <div v-for="vote in votes" :key="vote._id" class="vote-item">
-              <div class="vote-user">{{ vote.userEmail || vote.user || 'Anonymous' }}</div>
-              <div class="vote-date">{{ formatDate(vote.createdAt) }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- Background Decoration -->
     <div class="background-decoration">
@@ -160,9 +128,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getBags, deleteBag, getVotesForBag } from '@/services/api'
+import { getBags, deleteBag, getAllVotes } from '@/services/api'
 import { logout as clearAuth } from '@/services/auth'
 
 const router = useRouter()
@@ -171,12 +139,10 @@ const bags = ref([])
 const loading = ref(true)
 const error = ref('')
 const deleting = ref(null)
-const selectedBagId = ref(null)
-const votes = ref([])
-const loadingVotes = ref(false)
-const voteError = ref('')
+const voteCounts = ref({})
+const voteVoters = ref({})
 
-const selectedBag = computed(() => bags.value.find(b => b._id === selectedBagId.value))
+const selectedBag = computed(() => null)
 
 const fetchBags = async () => {
   loading.value = true
@@ -196,6 +162,42 @@ const fetchBags = async () => {
   }
 }
 
+const fetchVoteCounts = async () => {
+  try {
+    const response = await getAllVotes()
+    const votesRaw = response.data?.data || response.data || response || []
+    const counts = {}
+    const votersMap = {}
+    if (Array.isArray(votesRaw)) {
+      for (const v of votesRaw) {
+        const id = (v.bagId && v.bagId._id) ? v.bagId._id : v.bagId
+        const voter = v.userEmail || v.user || 'Anonymous'
+        if (id) {
+          counts[id] = (counts[id] || 0) + 1
+          if (!votersMap[id]) votersMap[id] = new Set()
+          if (voter) votersMap[id].add(voter)
+        }
+      }
+    }
+    voteCounts.value = counts
+    const obj = {}
+    for (const [k, set] of Object.entries(votersMap)) {
+      obj[k] = Array.from(set)
+    }
+    voteVoters.value = obj
+  } catch (err) {
+    console.error('Error fetching all votes:', err)
+  }
+}
+
+const voterSummaryFor = (bag) => {
+  const id = bag._id
+  const arr = voteVoters.value && voteVoters.value[id] ? voteVoters.value[id] : []
+  if (!arr || arr.length === 0) return 'No votes'
+  if (arr.length === 1) return arr[0]
+  return `${arr[0]} and ${arr.length - 1} other(s)`
+}
+
 const handleDelete = async (id) => {
   if (!confirm('Are you sure you want to delete this bag?')) {
     return
@@ -206,6 +208,8 @@ const handleDelete = async (id) => {
   try {
     await deleteBag(id)
     bags.value = bags.value.filter(bag => bag._id !== id)
+    // Refresh counts after deletion to keep list up to date
+    fetchVoteCounts()
   } catch (err) {
     console.error('Error deleting bag:', err)
     alert(err.response?.data?.message || 'Failed to delete bag. Please try again.')
@@ -233,31 +237,21 @@ const handleImageError = (e) => {
   e.target.src = ''
 }
 
-const openVotesModal = async (bagId) => {
-  selectedBagId.value = bagId
-  loadingVotes.value = true
-  voteError.value = ''
-  votes.value = []
-  
-  try {
-    const response = await getVotesForBag(bagId)
-    console.log('Votes Response:', response)
-    votes.value = response.data || response || []
-  } catch (err) {
-    console.error('Error fetching votes:', err)
-    voteError.value = err.response?.data?.message || 'Failed to load votes. Please try again.'
-  } finally {
-    loadingVotes.value = false
-  }
-}
+// Votes modal removed; counts shown inline under date
 
-const closeVotesModal = () => {
-  selectedBagId.value = null
-  votes.value = []
-}
+let votesIntervalId = null
 
 onMounted(() => {
   fetchBags()
+  fetchVoteCounts()
+  votesIntervalId = setInterval(fetchVoteCounts, 30000)
+})
+
+onUnmounted(() => {
+  if (votesIntervalId) {
+    clearInterval(votesIntervalId)
+    votesIntervalId = null
+  }
 })
 </script>
 

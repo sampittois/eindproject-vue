@@ -100,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAllVotes } from '@/services/api'
 import { logout as clearAuth } from '@/services/auth'
@@ -154,8 +154,18 @@ const handleLogout = () => {
   router.push('/login')
 }
 
+let votesIntervalId = null
+
 onMounted(() => {
   fetchVotes()
+  votesIntervalId = setInterval(fetchVotes, 30000)
+})
+
+onUnmounted(() => {
+  if (votesIntervalId) {
+    clearInterval(votesIntervalId)
+    votesIntervalId = null
+  }
 })
 </script>
 

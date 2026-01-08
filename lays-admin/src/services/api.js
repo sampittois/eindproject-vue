@@ -67,9 +67,29 @@ export const deleteBag = async (id) => {
 
 export const getVotes = async (bagId) => {
   try {
-    // Prefer query param to fetch votes by bagId; some backends
-    // expose filtering via params rather than path segments.
-    const response = await apiClient.get('/votes', { params: { bagId } })
+    // Try multiple endpoint styles for compatibility
+    const tryEndpoints = async () => {
+      const attempts = [
+        () => apiClient.get('/votes', { params: { bagId } }),
+        () => apiClient.get('/vote', { params: { bagId } }),
+        () => apiClient.get(`/votes/${bagId}`),
+        () => apiClient.get(`/vote/${bagId}`),
+        () => apiClient.get(`/bag/${bagId}/votes`)
+      ]
+      for (const attempt of attempts) {
+        try {
+          const res = await attempt()
+          return res
+        } catch (e) {
+          if (!(e.response && (e.response.status === 404 || e.response.status === 400))) {
+            throw e
+          }
+          // else try next endpoint style
+        }
+      }
+      throw new Error('Votes endpoint not found')
+    }
+    const response = await tryEndpoints()
     return response.data
   } catch (error) {
     throw error
@@ -78,8 +98,17 @@ export const getVotes = async (bagId) => {
 
 export const getAllVotes = async () => {
   try {
-    const response = await apiClient.get('/votes')
-    return response.data
+    // Try singular and plural
+    try {
+      const response = await apiClient.get('/votes')
+      return response.data
+    } catch (e) {
+      if (e.response && (e.response.status === 404 || e.response.status === 400)) {
+        const response2 = await apiClient.get('/vote')
+        return response2.data
+      }
+      throw e
+    }
   } catch (error) {
     throw error
   }
@@ -90,13 +119,41 @@ export const getAllVotes = async () => {
 // fetching all votes and filtering client-side.
 export const getVotesForBag = async (bagId) => {
   try {
-    const response = await apiClient.get('/votes', { params: { bagId } })
+    // Try common patterns for filtering by bag/config id
+    const tryEndpoints = async () => {
+      const attempts = [
+        () => apiClient.get('/votes', { params: { bagId } }),
+        () => apiClient.get('/vote', { params: { bagId } }),
+        () => apiClient.get(`/votes/${bagId}`),
+        () => apiClient.get(`/vote/${bagId}`),
+        () => apiClient.get(`/bag/${bagId}/votes`)
+      ]
+      for (const attempt of attempts) {
+        try {
+          const res = await attempt()
+          return res
+        } catch (e) {
+          if (!(e.response && (e.response.status === 404 || e.response.status === 400))) {
+            throw e
+          }
+        }
+      }
+      throw new Error('Votes endpoint not found')
+    }
+    const response = await tryEndpoints()
     return response.data
   } catch (error) {
     // Fallback: client-side filter from all votes if the specific endpoint fails
-    if (error.response && (error.response.status === 404 || error.response.status === 400)) {
-      const all = await apiClient.get('/votes')
-      const raw = all.data?.data || all.data || []
+    if (error.response && (error.response.status === 404 || error.response.status === 400) || error.message === 'Votes endpoint not found') {
+      // Try getting all votes first with plural, then singular
+      let raw
+      try {
+        const all = await apiClient.get('/votes')
+        raw = all.data?.data || all.data || []
+      } catch (e2) {
+        const all2 = await apiClient.get('/vote')
+        raw = all2.data?.data || all2.data || []
+      }
       const filtered = Array.isArray(raw)
         ? raw.filter(v => (v.bagId?._id || v.bagId) === bagId)
         : []

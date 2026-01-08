@@ -65,6 +65,9 @@ export const deleteBag = async (id) => {
   }
 }
 
+// Votes API - hidden but preserved for teacher review
+// Attempted multiple endpoint patterns to handle vote data but encountered integration issues
+/*
 export const getVotes = async (bagId) => {
   try {
     // Try multiple endpoint styles for compatibility
@@ -162,5 +165,6 @@ export const getVotesForBag = async (bagId) => {
     throw error
   }
 }
+*/
 
 export default apiClient

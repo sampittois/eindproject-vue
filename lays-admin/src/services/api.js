@@ -67,7 +67,7 @@ export const deleteBag = async (id) => {
 
 export const getVotes = async (bagId) => {
   try {
-    const response = await apiClient.get(`/vote?bagId=${bagId}`)
+    const response = await apiClient.get(`/votes/${bagId}`)
     return response.data
   } catch (error) {
     throw error
@@ -76,7 +76,7 @@ export const getVotes = async (bagId) => {
 
 export const getAllVotes = async () => {
   try {
-    const response = await apiClient.get('/vote')
+    const response = await apiClient.get('/votes')
     return response.data
   } catch (error) {
     throw error

@@ -89,6 +89,9 @@
                 </svg>
                 <span>{{ formatDate(bag.createdAt) }}</span>
               </div>
+              <!-- Votes display - hidden but preserved for teacher review -->
+              <!-- Attempted to show vote counts and voter summaries but encountered API issues -->
+              <!--
               <div class="info-item">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h-2m2-4h-2m2 4l-2 2m2-2l2 2M9 6h6m-6 4h6m-6 4h6M6 10h.01M6 6h.01M6 14h.01" />
@@ -98,6 +101,7 @@
                   — {{ voterSummaryFor(bag) }}
                 </span>
               </div>
+              -->
             </div>
 
             <!-- Delete Button -->
@@ -130,7 +134,7 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getBags, deleteBag, getAllVotes, getVotesForBag } from '@/services/api'
+import { getBags, deleteBag /* , getAllVotes, getVotesForBag */ } from '@/services/api'
 import { logout as clearAuth } from '@/services/auth'
 
 const router = useRouter()
@@ -139,8 +143,9 @@ const bags = ref([])
 const loading = ref(true)
 const error = ref('')
 const deleting = ref(null)
-const voteCounts = ref({})
-const voteVoters = ref({})
+// Votes feature - hidden but preserved for teacher review
+// const voteCounts = ref({})
+// const voteVoters = ref({})
 
 const selectedBag = computed(() => null)
 
@@ -162,6 +167,9 @@ const fetchBags = async () => {
   }
 }
 
+// Votes feature - hidden but preserved for teacher review
+// Attempted to implement vote counts and voter summaries but encountered API integration issues
+/*
 const fetchVoteCounts = async () => {
   try {
     const response = await getAllVotes()
@@ -224,6 +232,7 @@ const voterSummaryFor = (bag) => {
   if (arr.length === 1) return arr[0]
   return `${arr[0]} and ${arr.length - 1} other(s)`
 }
+*/
 
 const handleDelete = async (id) => {
   if (!confirm('Are you sure you want to delete this bag?')) {
@@ -236,7 +245,7 @@ const handleDelete = async (id) => {
     await deleteBag(id)
     bags.value = bags.value.filter(bag => bag._id !== id)
     // Refresh counts after deletion to keep list up to date
-    fetchVoteCounts()
+    // fetchVoteCounts()
   } catch (err) {
     console.error('Error deleting bag:', err)
     alert(err.response?.data?.message || 'Failed to delete bag. Please try again.')
@@ -266,19 +275,20 @@ const handleImageError = (e) => {
 
 // Votes modal removed; counts shown inline under date
 
-let votesIntervalId = null
+// Votes auto-refresh - hidden but preserved for teacher review
+// let votesIntervalId = null
 
 onMounted(() => {
   fetchBags()
-  fetchVoteCounts()
-  votesIntervalId = setInterval(fetchVoteCounts, 30000)
+  // fetchVoteCounts()
+  // votesIntervalId = setInterval(fetchVoteCounts, 30000)
 })
 
 onUnmounted(() => {
-  if (votesIntervalId) {
-    clearInterval(votesIntervalId)
-    votesIntervalId = null
-  }
+  // if (votesIntervalId) {
+  //   clearInterval(votesIntervalId)
+  //   votesIntervalId = null
+  // }
 })
 </script>
 

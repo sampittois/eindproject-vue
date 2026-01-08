@@ -76,10 +76,10 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { login as apiLogin } from '@/services/api'
+import { saveToken } from '@/services/auth'
 
 const router = useRouter()
-const authStore = useAuthStore()
 
 const email = ref('admin@admin.com')
 const password = ref('Admin')
@@ -91,15 +91,16 @@ const handleLogin = async () => {
   loading.value = true
 
   try {
-    const result = await authStore.login(email.value, password.value)
-    
-    if (result.success) {
+    const result = await apiLogin(email.value, password.value)
+    if (result && (result.token || result.accessToken)) {
+      const token = result.token || result.accessToken
+      saveToken(token)
       router.push('/dashboard')
     } else {
-      error.value = result.error || 'Login failed'
+      error.value = result?.error || 'Login failed'
     }
   } catch (err) {
-    error.value = 'An unexpected error occurred'
+    error.value = err?.response?.data?.message || 'An unexpected error occurred'
   } finally {
     loading.value = false
   }

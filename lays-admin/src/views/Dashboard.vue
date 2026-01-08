@@ -119,11 +119,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { getBags, deleteBag } from '@/services/api'
+import { logout as clearAuth } from '@/services/auth'
 
 const router = useRouter()
-const authStore = useAuthStore()
 
 const bags = ref([])
 const loading = ref(true)
@@ -164,7 +163,7 @@ const handleDelete = async (id) => {
 }
 
 const handleLogout = () => {
-  authStore.logout()
+  clearAuth()
   router.push('/login')
 }
 

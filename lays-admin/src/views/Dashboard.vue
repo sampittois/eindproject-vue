@@ -53,9 +53,9 @@
           <!-- Bag Image -->
           <div class="bag-image">
             <img
-              v-if="bag.screenshot"
-              :src="bag.screenshot"
-              :alt="bag.name"
+              v-if="bag.screenshot || bag.image"
+              :src="bag.screenshot || bag.image"
+              :alt="bag.name || bag.bagName"
               @error="handleImageError"
             />
             <div v-else class="image-placeholder">
@@ -68,11 +68,11 @@
           <!-- Bag Details -->
           <div class="bag-details">
             <div class="bag-header">
-              <h3 class="bag-name">{{ bag.name }}</h3>
+              <h3 class="bag-name">{{ bag.name || bag.bagName }}</h3>
               <div
                 class="bag-color"
-                :style="{ backgroundColor: bag.color }"
-                :title="`Color: ${bag.color}`"
+                :style="{ backgroundColor: bag.color || bag.bagColor }"
+                :title="`Color: ${bag.color || bag.bagColor}`"
               ></div>
             </div>
 
@@ -135,7 +135,10 @@ const fetchBags = async () => {
   
   try {
     const response = await getBags()
-    bags.value = response.data || response || []
+    console.log('API Response:', response)
+    const bagData = response.data?.data || response.data || response || []
+    console.log('Bag Data:', bagData)
+    bags.value = bagData
   } catch (err) {
     console.error('Error fetching bags:', err)
     error.value = err.response?.data?.message || 'Failed to load bags. Please try again.'

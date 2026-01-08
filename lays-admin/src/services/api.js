@@ -98,13 +98,13 @@ export const getVotes = async (bagId) => {
 
 export const getAllVotes = async () => {
   try {
-    // Try singular and plural
+    // Prefer singular `/vote` (based on backend), fallback to plural
     try {
-      const response = await apiClient.get('/votes')
+      const response = await apiClient.get('/vote')
       return response.data
     } catch (e) {
       if (e.response && (e.response.status === 404 || e.response.status === 400)) {
-        const response2 = await apiClient.get('/vote')
+        const response2 = await apiClient.get('/votes')
         return response2.data
       }
       throw e

@@ -130,7 +130,7 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getBags, deleteBag, getAllVotes } from '@/services/api'
+import { getBags, deleteBag, getAllVotes, getVotesForBag } from '@/services/api'
 import { logout as clearAuth } from '@/services/auth'
 
 const router = useRouter()
@@ -168,17 +168,44 @@ const fetchVoteCounts = async () => {
     const votesRaw = response.data?.data || response.data || response || []
     const counts = {}
     const votersMap = {}
-    if (Array.isArray(votesRaw)) {
-      for (const v of votesRaw) {
-        const id = (v.bagId && v.bagId._id) ? v.bagId._id : v.bagId
-        const voter = v.userEmail || v.user || 'Anonymous'
-        if (id) {
-          counts[id] = (counts[id] || 0) + 1
-          if (!votersMap[id]) votersMap[id] = new Set()
-          if (voter) votersMap[id].add(voter)
+
+    if (Array.isArray(votesRaw) && votesRaw.length > 0) {
+      // Raw votes array with per-vote bag reference
+      if (votesRaw[0].bagId || (votesRaw[0].bagId && votesRaw[0].bagId._id)) {
+        for (const v of votesRaw) {
+          const id = (v.bagId && v.bagId._id) ? v.bagId._id : v.bagId
+          const voter = v.userEmail || v.user || 'Anonymous'
+          if (id) {
+            counts[id] = (counts[id] || 0) + 1
+            if (!votersMap[id]) votersMap[id] = new Set()
+            if (voter) votersMap[id].add(voter)
+          }
         }
+      } else if (votesRaw[0]._id && typeof votesRaw[0].votes !== 'undefined') {
+        // Aggregated bag list with vote counts
+        for (const bag of votesRaw) {
+          counts[bag._id] = bag.votes || 0
+        }
+        // Fetch voters per bag to build summaries
+        const fetches = votesRaw.map(bag => getVotesForBag(bag._id))
+        const results = await Promise.allSettled(fetches)
+        results.forEach((res, idx) => {
+          const bagId = votesRaw[idx]._id
+          if (res.status === 'fulfilled') {
+            const arr = res.value?.data || res.value || []
+            const set = new Set()
+            if (Array.isArray(arr)) {
+              for (const v of arr) {
+                const voter = v.userEmail || v.user || 'Anonymous'
+                if (voter) set.add(voter)
+              }
+            }
+            votersMap[bagId] = set
+          }
+        })
       }
     }
+
     voteCounts.value = counts
     const obj = {}
     for (const [k, set] of Object.entries(votersMap)) {

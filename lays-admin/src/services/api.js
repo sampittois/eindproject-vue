@@ -65,4 +65,22 @@ export const deleteBag = async (id) => {
   }
 }
 
+export const getVotes = async (bagId) => {
+  try {
+    const response = await apiClient.get(`/vote?bagId=${bagId}`)
+    return response.data
+  } catch (error) {
+    throw error
+  }
+}
+
+export const getAllVotes = async () => {
+  try {
+    const response = await apiClient.get('/vote')
+    return response.data
+  } catch (error) {
+    throw error
+  }
+}
+
 export default apiClient

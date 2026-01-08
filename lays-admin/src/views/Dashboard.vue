@@ -91,6 +91,17 @@
               </div>
             </div>
 
+            <!-- Votes Button -->
+            <button
+              @click="openVotesModal(bag._id)"
+              class="votes-btn"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h-2m2-4h-2m2 4l-2 2m2-2l2 2M9 6h6m-6 4h6m-6 4h6M6 10h.01M6 6h.01M6 14h.01" />
+              </svg>
+              <span>Votes</span>
+            </button>
+
             <!-- Delete Button -->
             <button
               @click="handleDelete(bag._id)"
@@ -108,6 +119,38 @@
       </div>
     </main>
 
+    <!-- Votes Modal -->
+    <div v-if="selectedBagId" class="modal-overlay" @click="closeVotesModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2>Votes for {{ selectedBag?.name || selectedBag?.bagName }}</h2>
+          <button @click="closeVotesModal" class="close-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loadingVotes" class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading votes...</p>
+          </div>
+          <div v-else-if="voteError" class="error-state">
+            {{ voteError }}
+          </div>
+          <div v-else-if="votes.length === 0" class="empty-state">
+            <p>No votes for this design yet.</p>
+          </div>
+          <div v-else class="votes-list">
+            <div v-for="vote in votes" :key="vote._id" class="vote-item">
+              <div class="vote-user">{{ vote.userEmail || vote.user || 'Anonymous' }}</div>
+              <div class="vote-date">{{ formatDate(vote.createdAt) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Background Decoration -->
     <div class="background-decoration">
       <div class="decoration-shape shape-1"></div>
@@ -117,9 +160,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getBags, deleteBag } from '@/services/api'
+import { getBags, deleteBag, getVotes } from '@/services/api'
 import { logout as clearAuth } from '@/services/auth'
 
 const router = useRouter()
@@ -128,6 +171,12 @@ const bags = ref([])
 const loading = ref(true)
 const error = ref('')
 const deleting = ref(null)
+const selectedBagId = ref(null)
+const votes = ref([])
+const loadingVotes = ref(false)
+const voteError = ref('')
+
+const selectedBag = computed(() => bags.value.find(b => b._id === selectedBagId.value))
 
 const fetchBags = async () => {
   loading.value = true
@@ -182,6 +231,29 @@ const formatDate = (dateString) => {
 
 const handleImageError = (e) => {
   e.target.src = ''
+}
+
+const openVotesModal = async (bagId) => {
+  selectedBagId.value = bagId
+  loadingVotes.value = true
+  voteError.value = ''
+  votes.value = []
+  
+  try {
+    const response = await getVotes(bagId)
+    console.log('Votes Response:', response)
+    votes.value = response.data || response || []
+  } catch (err) {
+    console.error('Error fetching votes:', err)
+    voteError.value = err.response?.data?.message || 'Failed to load votes. Please try again.'
+  } finally {
+    loadingVotes.value = false
+  }
+}
+
+const closeVotesModal = () => {
+  selectedBagId.value = null
+  votes.value = []
 }
 
 onMounted(() => {
@@ -598,7 +670,142 @@ onMounted(() => {
   transform: none;
 }
 
+/* Votes Button */
+.votes-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  margin-bottom: 12px;
+}
+
+.votes-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.votes-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.votes-btn:active {
+  transform: translateY(0);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  border-radius: 8px;
+}
+
+.close-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1f2937;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.votes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vote-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.vote-user {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.vote-date {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
 /* Responsive Design */
+
 @media (max-width: 768px) {
   .dashboard-title {
     font-size: 20px;
